@@ -445,3 +445,30 @@
   .site-header__main { gap: 10px; }
   .market-switch__btn { padding: 6px 8px; }
 }
+
+/* ---------- Remove item ---------- */
+.build-item__price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.build-item__remove {
+  order: 2;
+  margin-top: 6px;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--rep-border);
+  border-radius: 50%;
+  background: var(--rep-white);
+  color: var(--rep-text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.build-item__remove:hover {
+  border-color: var(--rep-error);
+  color: var(--rep-error);
+}

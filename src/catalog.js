@@ -159,7 +159,7 @@ const DOWNGRADES = [
   { from: 'pr4000', to: 'pr1100', trim: 'rack' },
 ]
 
-const joinList = (list, and) => list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')}${and}${list.at(-1)}`
+export const joinList = (list, and) => list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')}${and}${list.at(-1)}`
 
 const KG_NAMED = ['bumperPlates', 'compBumpers', 'quickdraw', 'pepin']
 
@@ -195,7 +195,7 @@ export function buildGym(a, market) {
     qty,
   })
 
-  const needs = new Set(a.mustHaves?.length ? a.mustHaves : ['rack'])
+  const needs = new Set(a.mustHaves ?? ['rack'])
   const small = a.space === 'small'
   const lowCeiling = a.ceiling === 'low'
   const items = []
@@ -279,6 +279,12 @@ export function buildGym(a, market) {
     else tips.push(s.tips.noFlooring)
   }
 
+  // ---- Items the shopper removed from the build ---------------------------
+  const removed = new Set(a.removed ?? [])
+  for (let i = items.length - 1; i >= 0; i--) {
+    if (removed.has(groupOf(items[i].key))) items.splice(i, 1)
+  }
+
   // ---- Stay inside the budget ----------------------------------------------
   const trims = []
   for (const d of DOWNGRADES) {
@@ -314,4 +320,80 @@ export function buildGym(a, market) {
   const total = itemsTotal(items)
 
   return { items, tips, pkg, total, remaining: budget - total, hasPlates: items.some(i => i.perPair), budget }
+}
+
+// ---------------------------------------------------------------------------
+// Editing a finished build ("remove the bench", "add dumbbells")
+// ---------------------------------------------------------------------------
+
+const GROUPS = {
+  rack: ['pr1100', 'pr4000', 'pr5000', 'pr4100', 'wallFixed', 'altitude', 'athenaWall'],
+  cable: ['ares', 'performancePack'],
+  bench: ['fb3000', 'fb5000', 'ab3100', 'nighthawk', 'blackwing'],
+  bar: ['delta', 'blackDiamond', 'colorado'],
+  plates: ['ironPlates', 'bumperPlates', 'compBumpers'],
+  dumbbells: ['quickdraw', 'pepin'],
+  stand: ['dbStand'],
+  kettlebell: ['adjKettlebell'],
+  cardio: ['concept2'],
+  storage: ['plateTree'],
+  flooring: ['rubberTiles', 'floorMat'],
+}
+
+// Groups that correspond to a must-have answer are edited through that answer,
+// so the build logic can choose the right product again when they come back.
+const MUST_HAVE_GROUPS = ['rack', 'cable', 'dumbbells', 'cardio', 'storage']
+
+export const groupOf = (key) => Object.keys(GROUPS).find(g => GROUPS[g].includes(key))
+
+// Checked in this order so "dumbbell stand" beats "dumbbell" and "plate tree"
+// beats "plate".
+const GROUP_WORDS = [
+  ['stand', ['dumbbell stand', 'stand', 'ständer']],
+  ['storage', ['storage', 'plate tree', 'tree', 'aufbewahrung', 'baum']],
+  ['cable', ['cable', 'ares', 'athena', 'pulley', 'attachment', 'kabel', 'latzug']],
+  ['cardio', ['rower', 'rowing', 'row erg', 'concept2', 'cardio', 'ruder']],
+  ['kettlebell', ['kettlebell', 'kettle bell']],
+  ['dumbbells', ['dumbbell', 'dumbell', 'quickdraw', 'pepin', 'pépin', 'kurzhantel']],
+  ['plates', ['plate', 'bumper', 'weights', 'scheibe', 'gewicht']],
+  ['bench', ['bench', 'bank']],
+  ['flooring', ['floor', 'tile', 'mat', 'boden', 'fliese']],
+  ['bar', ['barbell', 'barbel', 'bar', 'langhantel', 'stange']],
+  ['rack', ['rack', 'pr-', 'gestell']],
+]
+
+const REMOVE_WORDS = ['remove', 'delete', 'drop', 'take out', 'take off', 'get rid', 'without', 'no ', "don't need", 'dont need', 'do not need', "don't want", 'do not want', 'skip', 'lose the', 'entfern', 'ohne', 'kein', 'weg', 'raus', 'lösch', 'streich']
+const ADD_WORDS = ['add', 'include', 'put', 'also want', 'i want', 'i need', 'give me', 'hinzu', 'dazu', 'ergänz', 'füg', 'möchte', 'brauche']
+
+// Returns { action: 'remove' | 'add' | null, group } or null if no item is named.
+export function parseEdit(text) {
+  const lower = ` ${text.toLowerCase().trim()} `
+  const group = GROUP_WORDS.find(([, words]) => words.some(w => lower.includes(w)))?.[0]
+  if (!group) return null
+  const action = REMOVE_WORDS.some(w => lower.includes(w)) ? 'remove'
+    : ADD_WORDS.some(w => lower.includes(w)) ? 'add'
+    : null
+  return { action, group }
+}
+
+export const buildHasGroup = (build, group) => build.items.some(i => groupOf(i.key) === group)
+
+// Returns the updated answers for an edit.
+export function applyEdit(answers, { action, group }) {
+  const mustHaves = new Set(answers.mustHaves ?? ['rack'])
+  const removed = new Set(answers.removed ?? [])
+
+  if (action === 'remove') {
+    if (MUST_HAVE_GROUPS.includes(group)) {
+      mustHaves.delete(group)
+      if (group === 'rack') mustHaves.delete('cable') // every cable system here is rack-based
+    } else {
+      removed.add(group)
+    }
+  } else {
+    if (MUST_HAVE_GROUPS.includes(group)) mustHaves.add(group)
+    removed.delete(group)
+  }
+
+  return { ...answers, mustHaves: [...mustHaves], removed: [...removed] }
 }

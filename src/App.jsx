@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import './App.css'
-import { getQuestions, parseAnswer, buildGym, t } from './catalog.js'
+import { getQuestions, parseAnswer, parseBudget, buildGym, t, parseEdit, applyEdit, buildHasGroup, groupOf, joinList } from './catalog.js'
 import { MARKETS, productUrl, formatPrice } from './markets.js'
 
 const TYPING_DELAY = 550
@@ -34,7 +34,7 @@ function RichLine({ text }) {
   )
 }
 
-function BuildCard({ build, market, onRestart, onEditBudget }) {
+function BuildCard({ build, market, onRestart, onEditBudget, onRemove }) {
   const { items, tips, pkg, total, remaining, hasPlates, budget } = build
   const s = t(market).card
   const fmt = (n) => formatPrice(n, market)
@@ -54,6 +54,9 @@ function BuildCard({ build, market, onRestart, onEditBudget }) {
               <span className="build-item__note">{item.note}</span>
             </div>
             <div className="build-item__price">
+              {onRemove && (
+                <button className="build-item__remove" onClick={() => onRemove(item)} aria-label={`${s.remove}: ${item.name}`} title={s.remove}>×</button>
+              )}
               {item.perPair
                 ? <>{s.from} {fmt(item.price)}<small>{s.perPair}</small></>
                 : item.qty > 1
@@ -104,7 +107,9 @@ function App() {
   const [multiPick, setMultiPick] = useState([])
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)
-  const [editingBudget, setEditingBudget] = useState(false)
+  const [resumeStep, setResumeStep] = useState(null) // where to go after a budget change
+  const [pendingWarn, setPendingWarn] = useState(false) // budget warning chips showing
+  const [lastBuild, setLastBuild] = useState(null)
   const endRef = useRef(null)
   const timer = useRef(null)
 
@@ -112,6 +117,8 @@ function App() {
   const questions = useMemo(() => getQuestions(market), [market])
   const done = step >= questions.length
   const question = questions[step]
+  const mustIdx = questions.findIndex(q => q.id === 'mustHaves')
+  const colorIdx = mustIdx + 1
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -135,7 +142,9 @@ function App() {
     setTyping(false)
     setAnswers({})
     setMultiPick([])
-    setEditingBudget(false)
+    setResumeStep(null)
+    setPendingWarn(false)
+    setLastBuild(null)
     setStep(0)
     setMessages(openingMessages(toMarket))
   }
@@ -153,6 +162,7 @@ function App() {
   const showResults = (finalAnswers) => {
     const build = buildGym(finalAnswers, market)
     setStep(questions.length)
+    setLastBuild(build)
     botSay([msg('bot', s.chat.results), msg('bot', '', { build })])
   }
 
@@ -166,27 +176,100 @@ function App() {
     }
   }
 
+  const echo = (text) => setMessages(prev => [...prev, msg('user', text)])
+
+  const askStep = (idx, prefix = '') => {
+    setStep(idx)
+    botSay([msg('bot', prefix + questions[idx].prompt, { hint: questions[idx].hint })])
+  }
+
+  // After must-haves, warn if even the leanest version of those picks can't fit
+  // the budget, so the shopper isn't surprised at the end.
+  const afterMustHaves = (ans, prefix = '') => {
+    const trial = buildGym({ ...ans, color: null }, market)
+    if (trial.remaining >= 0) {
+      askStep(colorIdx, prefix)
+      return
+    }
+    const labels = questions[mustIdx].options.filter(o => ans.mustHaves.includes(o.value)).map(o => s.lowerPicks ? o.label.toLowerCase() : o.label)
+    setStep(colorIdx)
+    setPendingWarn(true)
+    botSay([msg('bot', s.chat.warning(joinList(labels, s.and), formatPrice(Math.ceil(trial.total / 10) * 10, market), formatPrice(ans.budget, market)))])
+  }
+
   const submitAnswer = (value, label) => {
-    setMessages(prev => [...prev, msg('user', label)])
+    echo(label)
     const updated = { ...answers, [question.id]: value }
     setAnswers(updated)
     setMultiPick([])
+    const ack = acknowledge(question.id, value)
 
-    if (editingBudget || step === questions.length - 1) {
-      setEditingBudget(false)
+    if (question.id === 'budget' && resumeStep !== null) {
+      const target = resumeStep
+      setResumeStep(null)
+      if (target >= questions.length) showResults(updated)
+      else if (target === colorIdx) afterMustHaves(updated, ack)
+      else askStep(target, ack)
+      return
+    }
+    if (step === questions.length - 1) {
       showResults(updated)
       return
     }
-
-    const next = questions[step + 1]
-    setStep(step + 1)
-    botSay([msg('bot', acknowledge(question.id, value) + next.prompt, { hint: next.hint })])
+    if (question.id === 'mustHaves') {
+      afterMustHaves(updated)
+      return
+    }
+    askStep(step + 1, ack)
   }
 
   const editBudget = () => {
-    setEditingBudget(true)
+    setResumeStep(questions.length)
     setStep(0)
     botSay([msg('bot', s.chat.editBudget, { hint: questions[0].hint })])
+  }
+
+  const warnChoice = (choice) => {
+    echo(s.chat.warnChips[choice])
+    setPendingWarn(false)
+    if (choice === 'keep') askStep(colorIdx)
+    else if (choice === 'picks') askStep(mustIdx)
+    else {
+      setResumeStep(colorIdx)
+      setStep(0)
+      botSay([msg('bot', s.chat.newBudget, { hint: questions[0].hint })])
+    }
+  }
+
+  // "remove the bench", "add dumbbells", or the × on a build item.
+  const editBuild = (edit) => {
+    const label = s.edit.groups[edit.group]
+    if (!edit.action) {
+      botSay([msg('bot', s.edit.which(label))])
+      return
+    }
+    if (edit.action === 'remove' && !buildHasGroup(lastBuild, edit.group)) {
+      botSay([msg('bot', s.edit.notPresent(label))])
+      return
+    }
+    const updated = applyEdit(answers, edit)
+    const build = buildGym(updated, market)
+    const sameItems = build.items.map(i => i.key).join() === lastBuild.items.map(i => i.key).join()
+    if (sameItems) {
+      const missing = edit.action === 'add' && !buildHasGroup(build, edit.group)
+      botSay([msg('bot', missing ? s.edit.unavailable(label) : s.edit.noChange)])
+      return
+    }
+    setAnswers(updated)
+    setLastBuild(build)
+    setResumeStep(null)
+    setStep(questions.length)
+    botSay([msg('bot', edit.action === 'remove' ? s.edit.removed(label) : s.edit.added(label)), msg('bot', '', { build })])
+  }
+
+  const removeItem = (item) => {
+    echo(`${s.card.remove}: ${item.name}`)
+    editBuild({ action: 'remove', group: groupOf(item.key) })
   }
 
   const handleSend = () => {
@@ -199,10 +282,30 @@ function App() {
       return
     }
 
-    const echo = () => setMessages(prev => [...prev, msg('user', text)])
+    // Once there's a build, item edits work at any point, even mid budget change.
+    const edit = lastBuild && parseEdit(text)
+    if (edit) {
+      echo(text)
+      editBuild(edit)
+      return
+    }
+
+    if (pendingWarn) {
+      const n = parseBudget(text, market)
+      if (n) {
+        echo(text)
+        setPendingWarn(false)
+        const updated = { ...answers, budget: n }
+        setAnswers(updated)
+        afterMustHaves(updated, s.ack.budget(formatPrice(n, market)) + '\n\n')
+      } else if (/budget/i.test(text)) warnChoice('budget')
+      else if (/pick|change|auswahl|ändern/i.test(text)) warnChoice('picks')
+      else warnChoice('keep')
+      return
+    }
 
     if (done) {
-      echo()
+      echo(text)
       if (/budget/i.test(text)) editBudget()
       else botSay([msg('bot', s.chat.afterDone)])
       return
@@ -210,13 +313,13 @@ function App() {
 
     const value = parseAnswer(question, text, market)
     if (value === undefined) {
-      echo()
+      echo(text)
       botSay([msg('bot', question.id === 'budget' ? s.chat.noNumber(formatPrice(2000, market)) : s.chat.unclear)])
       return
     }
 
     if (question.id === 'budget' && value < 150) {
-      echo()
+      echo(text)
       botSay([msg('bot', s.chat.tooLow(formatPrice(500, market)))])
       return
     }
@@ -235,7 +338,8 @@ function App() {
   }
 
   const lastBotId = [...messages].reverse().find(m => m.sender === 'bot')?.id
-  const showChips = !done && !typing
+  const showChips = !done && !typing && !pendingWarn
+  const latestBuildId = [...messages].reverse().find(m => m.build)?.id
   const progress = Math.min(step, questions.length)
 
   return (
@@ -268,7 +372,7 @@ function App() {
         {messages.map(m => (
           <div key={m.id} className={`message message--${m.sender} ${m.build ? 'message--wide' : ''}`}>
             {m.build ? (
-              <BuildCard build={m.build} market={market} onRestart={() => reset()} onEditBudget={editBudget} />
+              <BuildCard build={m.build} market={market} onRestart={() => reset()} onEditBudget={editBudget} onRemove={m.id === latestBuildId && !typing ? removeItem : null} />
             ) : (
               <div className="bubble">
                 {m.text.split('\n').map((l, i) => <RichLine key={i} text={l} />)}
@@ -281,6 +385,14 @@ function App() {
         {typing && (
           <div className="message message--bot">
             <div className="bubble bubble--typing" aria-label={s.typing}><span /><span /><span /></div>
+          </div>
+        )}
+
+        {pendingWarn && !typing && (
+          <div className="chips">
+            {Object.entries(s.chat.warnChips).map(([key, label]) => (
+              <button key={key} className={`chip ${key === 'keep' ? 'chip--done' : ''}`} onClick={() => warnChoice(key)}>{label}</button>
+            ))}
           </div>
         )}
 

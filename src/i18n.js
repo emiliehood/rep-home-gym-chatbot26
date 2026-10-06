@@ -49,9 +49,12 @@ const en = {
   },
 
   chat: {
-    results: "Here's the build I'd put together for you. Tap any item to see it in the REP store.",
+    results: "Here's the build I'd put together for you. Tap any item to see it in the REP store, remove anything you don't need, or ask me to add something.",
     editBudget: "Sure. What budget should I work with? I'll keep the rest of your answers.",
-    afterDone: 'Want to tweak something? Tap **Adjust budget** to try a different number, or **Start over** to change your space and goals.',
+    afterDone: 'You can edit the build by typing things like **remove the bench** or **add dumbbells**, or tap **Adjust budget** or **Start over**.',
+    warning: (picks, min, budget) => `Heads up: a build with ${picks} starts at around **${min}**, which is more than your **${budget}** budget. Want to keep going, change your budget, or change your picks?`,
+    warnChips: { keep: 'Keep going', budget: 'Change budget', picks: 'Change picks' },
+    newBudget: 'What budget should I work with?',
     noNumber: (ex) => `I didn't catch a number there. Try something like **${ex}** or pick a range below.`,
     unclear: "I didn't quite catch that. Tap one of the options below or try rephrasing.",
     tooLow: (min) => `That budget is a bit tight for equipment from this lineup. Most builds start around **${min}**. What number should I work with?`,
@@ -64,7 +67,8 @@ const en = {
     from: 'from',
     total: 'Starting total',
     beforePlates: ' (before plates)',
-    over: (amt, budget) => `About **${amt}** over your ${budget} budget. Try a lower budget tier to see a leaner build.`,
+    over: (amt, budget) => `Your picks come to **${amt}** more than your ${budget} budget. Remove an item above or adjust your budget.`,
+    remove: 'Remove',
     under: (amt, budget, plates) => `**${amt}** left in your ${budget} budget${plates ? ' to put toward plates' : ''}.`,
     bundle: 'Save with a bundle',
     tips: 'Good to know',
@@ -135,6 +139,17 @@ const en = {
   },
   and: ' and ',
 
+  edit: {
+    groups: { rack: 'rack', bar: 'barbell', plates: 'plates', bench: 'bench', dumbbells: 'dumbbells', stand: 'dumbbell stand', kettlebell: 'kettlebell', cable: 'cable system', cardio: 'rower', storage: 'storage', flooring: 'flooring' },
+    removed: (x) => `Done. I removed the ${x} and updated your build.`,
+    added: (x) => `Done. I added the ${x} and updated your build.`,
+    notPresent: (x) => `There's no ${x} in your build right now.`,
+    noChange: "That's already reflected in your build.",
+    unavailable: (x) => `I couldn't add the ${x}, since it isn't available for this build or this store.`,
+    which: (x) => `Do you want me to remove the ${x} or add it? Try **remove ${x}** or **add ${x}**.`,
+  },
+  lowerPicks: true,
+
   packages: {
     trailhead: 'PR-1100 rack, bench, Delta bar and your choice of plates',
     essentials: 'PR-5000 rack, adjustable bench, adjustable dumbbells, bar, plates and accessories',
@@ -203,9 +218,12 @@ const de = {
   },
 
   chat: {
-    results: 'So würde ich dein Home Gym zusammenstellen. Tippe auf ein Produkt, um es im REP-Shop anzusehen.',
+    results: 'So würde ich dein Home Gym zusammenstellen. Tippe auf ein Produkt, um es im REP-Shop anzusehen, entferne, was du nicht brauchst, oder bitte mich, etwas hinzuzufügen.',
     editBudget: 'Klar. Mit welchem Budget soll ich planen? Deine übrigen Antworten bleiben erhalten.',
-    afterDone: 'Möchtest du etwas ändern? Tippe auf **Budget anpassen** für einen anderen Betrag oder auf **Neu starten**, um Raum und Ziele zu ändern.',
+    afterDone: 'Du kannst dein Setup anpassen, z. B. mit **Bank entfernen** oder **Kurzhanteln hinzufügen**. Oder tippe auf **Budget anpassen** bzw. **Neu starten**.',
+    warning: (picks, min, budget) => `Kurzer Hinweis: Für ${picks} startet ein Setup bei etwa **${min}**, also über deinem Budget von **${budget}**. Möchtest du trotzdem weitermachen, dein Budget ändern oder deine Auswahl anpassen?`,
+    warnChips: { keep: 'Weitermachen', budget: 'Budget ändern', picks: 'Auswahl ändern' },
+    newBudget: 'Mit welchem Budget soll ich planen?',
     noNumber: (ex) => `Da habe ich keinen Betrag erkannt. Versuch es mit z. B. **${ex}** oder wähle unten einen Bereich.`,
     unclear: 'Das habe ich nicht ganz verstanden. Tippe auf eine der Optionen unten oder formuliere es anders.',
     tooLow: (min) => `Für Equipment aus diesem Sortiment ist das Budget etwas knapp. Die meisten Setups starten bei etwa **${min}**. Mit welchem Betrag soll ich planen?`,
@@ -218,7 +236,8 @@ const de = {
     from: 'ab',
     total: 'Gesamtpreis ab',
     beforePlates: ' (ohne Scheiben)',
-    over: (amt, budget) => `Etwa **${amt}** über deinem Budget von ${budget}. Wähle eine niedrigere Budgetstufe für ein schlankeres Setup.`,
+    over: (amt, budget) => `Deine Auswahl liegt **${amt}** über deinem Budget von ${budget}. Entferne oben einen Artikel oder passe dein Budget an.`,
+    remove: 'Entfernen',
     under: (amt, budget, plates) => `**${amt}** bleiben von deinem Budget von ${budget} übrig${plates ? ', z. B. für Hantelscheiben' : ''}.`,
     bundle: 'Sparen mit einem Paket',
     tips: 'Gut zu wissen',
@@ -288,6 +307,17 @@ const de = {
     rack: 'das PR-1100 Rack gewählt',
   },
   and: ' und ',
+
+  edit: {
+    groups: { rack: 'das Rack', bar: 'die Langhantel', plates: 'die Hantelscheiben', bench: 'die Bank', dumbbells: 'die Kurzhanteln', stand: 'den Kurzhantelständer', kettlebell: 'die Kettlebell', cable: 'den Kabelzug', cardio: 'das Rudergerät', storage: 'die Aufbewahrung', flooring: 'den Bodenbelag' },
+    removed: (x) => `Erledigt. Ich habe ${x} entfernt und dein Setup aktualisiert.`,
+    added: (x) => `Erledigt. Ich habe ${x} hinzugefügt und dein Setup aktualisiert.`,
+    notPresent: () => 'Das ist gerade nicht in deinem Setup.',
+    noChange: 'Das ist in deinem Setup schon berücksichtigt.',
+    unavailable: () => 'Das kann ich für dieses Setup oder in diesem Shop leider nicht hinzufügen.',
+    which: (x) => `Soll ich ${x} entfernen oder hinzufügen? Schreib z. B. **${x} entfernen** oder **${x} hinzufügen**.`,
+  },
+  lowerPicks: false,
 
   packages: {
     trailhead: 'PR-1100 Rack, Bank, Delta-Langhantel und Scheiben nach Wahl',
