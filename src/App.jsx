@@ -1,12 +1,24 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import './App.css'
-import { QUESTIONS, parseAnswer, buildGym, productUrl, formatPrice } from './catalog.js'
+import { getQuestions, parseAnswer, buildGym, t } from './catalog.js'
+import { MARKETS, productUrl, formatPrice } from './markets.js'
 
-const INTRO = "Hey, I'm the **REP Home Gym Builder**. Answer a few quick questions about your space, budget and goals, and I'll put together a build from REP's lineup."
 const TYPING_DELAY = 550
+const RESTART_WORDS = /^(restart|start over|reset|neustart|neu starten|von vorn)$/i
 
 let nextId = 1
 const msg = (sender, text, extra = {}) => ({ id: nextId++, sender, text, ...extra })
+
+// Market comes from ?market=uk|de, so a link can open straight into a store.
+function initialMarket() {
+  const param = new URLSearchParams(window.location.search).get('market')?.toLowerCase()
+  return MARKETS[param] ? param : 'us'
+}
+
+const openingMessages = (market) => {
+  const q = getQuestions(market)[0]
+  return [msg('bot', t(market).intro), msg('bot', q.prompt, { hint: q.hint })]
+}
 
 // Renders **bold** segments inside a line of text.
 function RichLine({ text }) {
@@ -22,104 +34,136 @@ function RichLine({ text }) {
   )
 }
 
-function BuildCard({ build, onRestart, onEditBudget }) {
-  const { items, tips, pkg, total, remaining, plateLine, budget } = build
-  const overBudget = remaining < 0
+function BuildCard({ build, market, onRestart, onEditBudget }) {
+  const { items, tips, pkg, total, remaining, hasPlates, budget } = build
+  const s = t(market).card
+  const fmt = (n) => formatPrice(n, market)
 
   return (
     <div className="build-card">
       <div className="build-card__head">
-        <span className="eyebrow">Your build</span>
-        <h2>REP Home Gym</h2>
+        <span className="eyebrow">{s.eyebrow}</span>
+        <h2>{s.title}</h2>
       </div>
 
       <ul className="build-list">
         {items.map(item => (
           <li key={item.key} className="build-item">
             <div className="build-item__info">
-              <a href={productUrl(item.handle)} target="_blank" rel="noreferrer">{item.name}</a>
+              <a href={productUrl(market, item.handle)} target="_blank" rel="noreferrer">{item.name}</a>
               <span className="build-item__note">{item.note}</span>
             </div>
             <div className="build-item__price">
               {item.perPair
-                ? <>from {formatPrice(item.price)}<small>per pair</small></>
+                ? <>{s.from} {fmt(item.price)}<small>{s.perPair}</small></>
                 : item.qty > 1
-                  ? <>{formatPrice(item.price * item.qty)}<small>{item.qty} × {formatPrice(item.price)}</small></>
-                  : formatPrice(item.price)}
+                  ? <>{fmt(item.price * item.qty)}<small>{item.qty} × {fmt(item.price)}</small></>
+                  : fmt(item.price)}
             </div>
           </li>
         ))}
       </ul>
 
       <div className="build-total">
-        <span>Starting total{plateLine ? ' (before plates)' : ''}</span>
-        <strong>{formatPrice(total)}</strong>
+        <span>{s.total}{hasPlates ? s.beforePlates : ''}</span>
+        <strong>{fmt(total)}</strong>
       </div>
 
-      <div className={`build-budget ${overBudget ? 'is-over' : 'is-under'}`}>
-        {overBudget
-          ? <>About <strong>{formatPrice(-remaining)}</strong> over your {formatPrice(budget)} budget. Try a lower budget tier to see a leaner build.</>
-          : <><strong>{formatPrice(remaining)}</strong> left in your {formatPrice(budget)} budget{plateLine ? ' to put toward plates' : ''}.</>}
+      <div className={`build-budget ${remaining < 0 ? 'is-over' : 'is-under'}`}>
+        <RichLine text={remaining < 0 ? s.over(fmt(-remaining), fmt(budget)) : s.under(fmt(remaining), fmt(budget), hasPlates)} />
       </div>
 
       {pkg && (
-        <a className="build-package" href={productUrl(pkg.handle)} target="_blank" rel="noreferrer">
-          <span className="eyebrow">Save with a bundle</span>
-          <strong>{pkg.name}{pkg.price ? ` · from ${formatPrice(pkg.price)}` : ''}</strong>
+        <a className="build-package" href={productUrl(market, pkg.handle)} target="_blank" rel="noreferrer">
+          <span className="eyebrow">{s.bundle}</span>
+          <strong>{pkg.name}{pkg.price ? ` · ${s.from} ${fmt(pkg.price)}` : ''}</strong>
           <span>{pkg.blurb}</span>
         </a>
       )}
 
       {tips.length > 0 && (
         <div className="build-tips">
-          <span className="eyebrow">Good to know</span>
-          <ul>{tips.map(t => <li key={t}>{t}</li>)}</ul>
+          <span className="eyebrow">{s.tips}</span>
+          <ul>{tips.map(tip => <li key={tip}>{tip}</li>)}</ul>
         </div>
       )}
 
       <div className="build-actions">
-        <button className="btn btn--primary" onClick={onEditBudget}>Adjust budget</button>
-        <button className="btn btn--secondary" onClick={onRestart}>Start over</button>
+        <button className="btn btn--primary" onClick={onEditBudget}>{s.adjust}</button>
+        <button className="btn btn--secondary" onClick={onRestart}>{s.restart}</button>
       </div>
     </div>
   )
 }
 
 function App() {
-  const [messages, setMessages] = useState(() => [
-    msg('bot', INTRO),
-    msg('bot', QUESTIONS[0].prompt, { hint: QUESTIONS[0].hint }),
-  ])
-  const [step, setStep] = useState(0) // index into QUESTIONS; QUESTIONS.length = results shown
+  const [market, setMarket] = useState(initialMarket)
+  const [messages, setMessages] = useState(() => openingMessages(market))
+  const [step, setStep] = useState(0) // index into questions; questions.length = results shown
   const [answers, setAnswers] = useState({})
   const [multiPick, setMultiPick] = useState([])
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)
   const [editingBudget, setEditingBudget] = useState(false)
   const endRef = useRef(null)
+  const timer = useRef(null)
 
-  const done = step >= QUESTIONS.length
-  const question = QUESTIONS[step]
+  const s = t(market)
+  const questions = useMemo(() => getQuestions(market), [market])
+  const done = step >= questions.length
+  const question = questions[step]
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, typing])
 
+  useEffect(() => {
+    document.documentElement.lang = MARKETS[market].lang
+  }, [market])
+
   const botSay = (newMessages) => {
     setTyping(true)
-    setTimeout(() => {
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => {
       setTyping(false)
       setMessages(prev => [...prev, ...newMessages])
     }, TYPING_DELAY)
   }
 
+  const reset = (toMarket = market) => {
+    clearTimeout(timer.current)
+    setTyping(false)
+    setAnswers({})
+    setMultiPick([])
+    setEditingBudget(false)
+    setStep(0)
+    setMessages(openingMessages(toMarket))
+  }
+
+  const switchMarket = (code) => {
+    if (code === market) return
+    setMarket(code)
+    const url = new URL(window.location.href)
+    if (code === 'us') url.searchParams.delete('market')
+    else url.searchParams.set('market', code)
+    window.history.replaceState(null, '', url)
+    reset(code)
+  }
+
   const showResults = (finalAnswers) => {
-    const build = buildGym(finalAnswers)
-    setStep(QUESTIONS.length)
-    botSay([
-      msg('bot', "Here's the build I'd put together for you. Tap any item to see it on repfitness.com."),
-      msg('bot', '', { build }),
-    ])
+    const build = buildGym(finalAnswers, market)
+    setStep(questions.length)
+    botSay([msg('bot', s.chat.results), msg('bot', '', { build })])
+  }
+
+  const acknowledge = (id, value) => {
+    switch (id) {
+      case 'budget': return s.ack.budget(formatPrice(value, market)) + '\n\n'
+      case 'space': return (value === 'small' ? s.ack.spaceSmall : s.ack.spaceOther) + '\n\n'
+      case 'ceiling': return value === 'low' ? s.ack.ceilingLow + '\n\n' : ''
+      case 'goal': return s.ack.goal + '\n\n'
+      default: return ''
+    }
   }
 
   const submitAnswer = (value, label) => {
@@ -128,29 +172,21 @@ function App() {
     setAnswers(updated)
     setMultiPick([])
 
-    if (editingBudget || step === QUESTIONS.length - 1) {
+    if (editingBudget || step === questions.length - 1) {
       setEditingBudget(false)
       showResults(updated)
       return
     }
 
-    const next = QUESTIONS[step + 1]
+    const next = questions[step + 1]
     setStep(step + 1)
     botSay([msg('bot', acknowledge(question.id, value) + next.prompt, { hint: next.hint })])
-  }
-
-  const restart = () => {
-    setAnswers({})
-    setMultiPick([])
-    setEditingBudget(false)
-    setStep(0)
-    setMessages([msg('bot', INTRO), msg('bot', QUESTIONS[0].prompt, { hint: QUESTIONS[0].hint })])
   }
 
   const editBudget = () => {
     setEditingBudget(true)
     setStep(0)
-    botSay([msg('bot', "Sure. What budget should I work with? I'll keep the rest of your answers.", { hint: QUESTIONS[0].hint })])
+    botSay([msg('bot', s.chat.editBudget, { hint: questions[0].hint })])
   }
 
   const handleSend = () => {
@@ -158,30 +194,30 @@ function App() {
     if (!text || typing) return
     setInput('')
 
-    if (/^(restart|start over|reset)$/i.test(text)) {
-      restart()
+    if (RESTART_WORDS.test(text)) {
+      reset()
       return
     }
+
+    const echo = () => setMessages(prev => [...prev, msg('user', text)])
 
     if (done) {
-      setMessages(prev => [...prev, msg('user', text)])
+      echo()
       if (/budget/i.test(text)) editBudget()
-      else botSay([msg('bot', "Want to tweak something? Tap **Adjust budget** to try a different number, or **Start over** to change your space and goals.")])
+      else botSay([msg('bot', s.chat.afterDone)])
       return
     }
 
-    const value = parseAnswer(question, text)
+    const value = parseAnswer(question, text, market)
     if (value === undefined) {
-      setMessages(prev => [...prev, msg('user', text)])
-      botSay([msg('bot', question.id === 'budget'
-        ? "I didn't catch a number there. Try something like **$2,000** or pick a range below."
-        : "I didn't quite catch that. Tap one of the options below or try rephrasing.")])
+      echo()
+      botSay([msg('bot', question.id === 'budget' ? s.chat.noNumber(formatPrice(2000, market)) : s.chat.unclear)])
       return
     }
 
     if (question.id === 'budget' && value < 150) {
-      setMessages(prev => [...prev, msg('user', text)])
-      botSay([msg('bot', 'That budget is a bit tight for equipment from this lineup. Most builds start around **$500**. What number should I work with?')])
+      echo()
+      botSay([msg('bot', s.chat.tooLow(formatPrice(500, market)))])
       return
     }
 
@@ -200,17 +236,31 @@ function App() {
 
   const lastBotId = [...messages].reverse().find(m => m.sender === 'bot')?.id
   const showChips = !done && !typing
+  const progress = Math.min(step, questions.length)
 
   return (
     <div className="app">
       <header className="site-header">
-        <div className="site-header__bar">Home Gym Builder · Prototype for interview</div>
+        <div className="site-header__bar">{s.bar}</div>
         <div className="site-header__main">
           <span className="wordmark">REP</span>
-          <span className="site-header__title">Build your home gym</span>
+          <span className="site-header__title">{s.title}</span>
+          <div className="market-switch" role="group" aria-label={s.marketLabel}>
+            {Object.values(MARKETS).map(m => (
+              <button
+                key={m.code}
+                className={`market-switch__btn ${m.code === market ? 'is-active' : ''}`}
+                aria-pressed={m.code === market}
+                title={m.name}
+                onClick={() => switchMarket(m.code)}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="progress" aria-label={`Step ${Math.min(step + 1, QUESTIONS.length)} of ${QUESTIONS.length}`}>
-          <div className="progress__fill" style={{ width: `${(Math.min(step, QUESTIONS.length) / QUESTIONS.length) * 100}%` }} />
+        <div className="progress" aria-label={s.stepOf(Math.min(step + 1, questions.length), questions.length)}>
+          <div className="progress__fill" style={{ width: `${(progress / questions.length) * 100}%` }} />
         </div>
       </header>
 
@@ -218,7 +268,7 @@ function App() {
         {messages.map(m => (
           <div key={m.id} className={`message message--${m.sender} ${m.build ? 'message--wide' : ''}`}>
             {m.build ? (
-              <BuildCard build={m.build} onRestart={restart} onEditBudget={editBudget} />
+              <BuildCard build={m.build} market={market} onRestart={() => reset()} onEditBudget={editBudget} />
             ) : (
               <div className="bubble">
                 {m.text.split('\n').map((l, i) => <RichLine key={i} text={l} />)}
@@ -230,7 +280,7 @@ function App() {
 
         {typing && (
           <div className="message message--bot">
-            <div className="bubble bubble--typing" aria-label="Typing"><span /><span /><span /></div>
+            <div className="bubble bubble--typing" aria-label={s.typing}><span /><span /><span /></div>
           </div>
         )}
 
@@ -250,7 +300,7 @@ function App() {
               )
             })}
             {question.multi && (
-              <button className="chip chip--done" disabled={!multiPick.length} onClick={submitMulti}>Done</button>
+              <button className="chip chip--done" disabled={!multiPick.length} onClick={submitMulti}>{s.done}</button>
             )}
           </div>
         )}
@@ -264,24 +314,13 @@ function App() {
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') handleSend() }}
-          placeholder={done ? "Type 'restart' to start over" : 'Type your answer...'}
-          aria-label="Your answer"
+          placeholder={done ? s.placeholderDone : s.placeholder}
+          aria-label={s.inputLabel}
         />
-        <button className="btn btn--primary" onClick={handleSend} disabled={!input.trim() || typing}>Send</button>
+        <button className="btn btn--primary" onClick={handleSend} disabled={!input.trim() || typing}>{s.send}</button>
       </footer>
     </div>
   )
-}
-
-// Short confirmation before the next question so the chat feels responsive.
-function acknowledge(id, value) {
-  switch (id) {
-    case 'budget': return `Got it, working with about ${formatPrice(value)}.\n\n`
-    case 'space': return value === 'small' ? "Small spaces can still pack a serious gym.\n\n" : 'Nice, plenty to work with.\n\n'
-    case 'ceiling': return value === 'low' ? "Good to know. I'll stick to equipment that fits.\n\n" : ''
-    case 'goal': return 'Love it.\n\n'
-    default: return ''
-  }
 }
 
 export default App

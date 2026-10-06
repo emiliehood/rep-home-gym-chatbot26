@@ -408,3 +408,40 @@
   .build-budget, .build-package, .build-tips { margin-inline: 16px; }
   .build-actions { padding: 16px; flex-direction: column; }
 }
+
+/* ---------- Market switcher ---------- */
+.market-switch {
+  margin-left: auto;
+  display: flex;
+  border: 1px solid var(--rep-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.market-switch__btn {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--rep-navy);
+  background: var(--rep-white);
+  border: 0;
+  padding: 7px 10px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.market-switch__btn + .market-switch__btn { border-left: 1px solid var(--rep-border); }
+.market-switch__btn:hover { background: var(--rep-gray-100); }
+
+.market-switch__btn.is-active {
+  background: var(--rep-navy);
+  color: var(--rep-white);
+}
+
+@media (max-width: 520px) {
+  .site-header__title { font-size: 13px; }
+  .wordmark { font-size: 24px; padding-right: 10px; }
+  .site-header__main { gap: 10px; }
+  .market-switch__btn { padding: 6px 8px; }
+}
