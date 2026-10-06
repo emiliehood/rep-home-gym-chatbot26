@@ -472,3 +472,54 @@
   border-color: var(--rep-error);
   color: var(--rep-error);
 }
+
+/* ---------- All-in-one suggestion ---------- */
+.build-allinone {
+  margin: 16px 20px 0;
+  padding: 16px;
+  border-radius: 6px;
+  background: var(--rep-navy);
+  color: var(--rep-white);
+  font-size: 14px;
+}
+
+.build-allinone .eyebrow { color: rgba(255, 255, 255, 0.7); }
+.build-allinone p { margin-top: 4px; }
+
+.build-allinone ul {
+  list-style: none;
+  margin-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.build-allinone li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  font-weight: 700;
+}
+
+.build-allinone a { color: var(--rep-white); text-decoration: none; }
+.build-allinone a:hover { text-decoration: underline; }
+
+.build-allinone__delta {
+  display: block;
+  margin: 10px 0 12px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+}
+
+.build-allinone .btn--primary {
+  width: 100%;
+  background: var(--rep-white);
+  color: var(--rep-navy);
+  border-color: var(--rep-white);
+}
+
+.build-allinone .btn--primary:hover { background: var(--rep-gray-100); }
+
+@media (max-width: 520px) {
+  .build-allinone { margin-inline: 16px; }
+}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import './App.css'
-import { getQuestions, parseAnswer, parseBudget, buildGym, t, parseEdit, editBuild as editBuildState, buildHasGroup, groupOf, joinList } from './catalog.js'
+import { getQuestions, parseAnswer, parseBudget, buildGym, t, parseEdit, editBuild as editBuildState, buildHasGroup, groupOf, joinList, suggestAllInOne, swapAllInOne } from './catalog.js'
 import { MARKETS, productUrl, formatPrice } from './markets.js'
 
 const TYPING_DELAY = 550
@@ -34,7 +34,7 @@ function RichLine({ text }) {
   )
 }
 
-function BuildCard({ build, market, onRestart, onEditBudget, onRemove }) {
+function BuildCard({ build, market, onRestart, onEditBudget, onRemove, suggestion, onSwap }) {
   const { items, tips, pkg, total, remaining, hasPlates, budget } = build
   const s = t(market).card
   const fmt = (n) => formatPrice(n, market)
@@ -75,6 +75,25 @@ function BuildCard({ build, market, onRestart, onEditBudget, onRemove }) {
       <div className={`build-budget ${remaining < 0 ? 'is-over' : 'is-under'}`}>
         <RichLine text={remaining < 0 ? s.over(fmt(-remaining), fmt(budget)) : s.under(fmt(remaining), fmt(budget), hasPlates)} />
       </div>
+
+      {suggestion && (
+        <div className="build-allinone">
+          <span className="eyebrow">{s.allInOne.eyebrow}</span>
+          <p>{suggestion.reason === 'growLater' ? s.allInOne.growLater(fmt(suggestion.later)) : s.allInOne[suggestion.reason === 'combine' && suggestion.id === 'summit' ? 'combineSummit' : suggestion.reason]}</p>
+          <ul>
+            {suggestion.items.map(i => (
+              <li key={i.key}>
+                <a href={productUrl(market, i.handle)} target="_blank" rel="noreferrer">{i.name}</a>
+                <span>{fmt(i.price)}</span>
+              </li>
+            ))}
+          </ul>
+          <span className="build-allinone__delta">
+            {Math.abs(suggestion.delta) < 1 ? s.allInOne.same : suggestion.delta > 0 ? s.allInOne.more(fmt(suggestion.delta)) : s.allInOne.less(fmt(-suggestion.delta))}
+          </span>
+          {onSwap && <button className="btn btn--primary" onClick={onSwap}>{s.allInOne.swap}</button>}
+        </div>
+      )}
 
       {pkg && (
         <a className="build-package" href={productUrl(market, pkg.handle)} target="_blank" rel="noreferrer">
@@ -265,6 +284,22 @@ function App() {
     botSay([msg('bot', (edit.action === 'remove' ? s.edit.removed(label) : s.edit.added(label)) + note), msg('bot', '', { build })])
   }
 
+  const currentSuggestion = lastBuild && suggestAllInOne(lastBuild, answers, market)
+
+  const swapSystem = (label) => {
+    if (label) echo(label)
+    if (!currentSuggestion) {
+      botSay([msg('bot', s.edit.noSwap)])
+      return
+    }
+    const { answers: updated, build } = swapAllInOne(lastBuild, answers, currentSuggestion)
+    setAnswers(updated)
+    setLastBuild(build)
+    setResumeStep(null)
+    setStep(questions.length)
+    botSay([msg('bot', s.edit.swapped), msg('bot', '', { build })])
+  }
+
   const removeItem = (item) => {
     echo(`${s.card.remove}: ${item.name}`)
     editBuild({ action: 'remove', group: groupOf(item.key) })
@@ -277,6 +312,11 @@ function App() {
 
     if (RESTART_WORDS.test(text)) {
       reset()
+      return
+    }
+
+    if (lastBuild && /all.?in.?one|altitude|summit|swap|austausch/i.test(text)) {
+      swapSystem(text)
       return
     }
 
@@ -370,7 +410,7 @@ function App() {
         {messages.map(m => (
           <div key={m.id} className={`message message--${m.sender} ${m.build ? 'message--wide' : ''}`}>
             {m.build ? (
-              <BuildCard build={m.build} market={market} onRestart={() => reset()} onEditBudget={editBudget} onRemove={m.id === latestBuildId && !typing ? removeItem : null} />
+              <BuildCard build={m.build} market={market} onRestart={() => reset()} onEditBudget={editBudget} onRemove={m.id === latestBuildId && !typing ? removeItem : null} suggestion={m.id === latestBuildId ? currentSuggestion : null} onSwap={!typing ? () => swapSystem(s.card.allInOne.swap) : null} />
             ) : (
               <div className="bubble">
                 {m.text.split('\n').map((l, i) => <RichLine key={i} text={l} />)}

@@ -169,6 +169,40 @@ const itemsTotal = (items) => items.reduce((sum, i) => sum + (i.perPair ? 0 : i.
 // Build recommendation
 // ---------------------------------------------------------------------------
 
+function lineFor(key, market, note, qty = 1) {
+  const s = t(market)
+  const m = MARKETS[market]
+  const [price, handle] = PRICES[market][key]
+  const n = s.notes[key]
+  return {
+    key,
+    name: PRODUCT_NAMES[key] + (m.units === 'metric' && KG_NAMED.includes(key) ? ' (KG)' : ''),
+    price,
+    handle,
+    perPair: ['ironPlates', 'bumperPlates', 'compBumpers'].includes(key),
+    note: note ?? (typeof n === 'object' ? n[m.units] : n),
+    qty,
+  }
+}
+
+// All-in-one systems REP sells, as the item keys that make up each one.
+const ALL_IN_ONE = {
+  summit: ['summitAthena'],
+  altitude: ['altitude', 'altitudeCable'],
+  altitudeRack: ['altitude'], // start with the rack, add cables and Smith later
+}
+
+// Which all-in-one fits this shopper, if any. Summit (Smith + cables + half
+// rack) for bigger budgets, otherwise the Altitude rack with its cable attachment.
+function pickAllInOne(a, market) {
+  const prices = PRICES[market]
+  const usd = a.budget / MARKETS[market].parity
+  const available = (id) => ALL_IN_ONE[id].every(k => prices[k])
+  if (usd >= 4400 && available('summit')) return 'summit'
+  if (available('altitude')) return 'altitude'
+  return null
+}
+
 export function buildGym(a, market) {
   const s = t(market)
   const m = MARKETS[market]
@@ -181,19 +215,7 @@ export function buildGym(a, market) {
   const budget = a.budget
   const usd = budget / m.parity
 
-  const noteFor = (key) => {
-    const n = s.notes[key]
-    return typeof n === 'object' ? n[m.units] : n
-  }
-  const line = (key, note = noteFor(key), qty = 1) => ({
-    key,
-    name: PRODUCT_NAMES[key] + (m.units === 'metric' && KG_NAMED.includes(key) ? ' (KG)' : ''),
-    price: prices[key][0],
-    handle: prices[key][1],
-    perPair: ['ironPlates', 'bumperPlates', 'compBumpers'].includes(key),
-    note,
-    qty,
-  })
+  const line = (key, note, qty) => lineFor(key, market, note, qty)
 
   const needs = new Set(a.mustHaves ?? ['rack'])
   const small = a.space === 'small'
@@ -203,7 +225,9 @@ export function buildGym(a, market) {
   let pkgKey = null
 
   // ---- Rack / cable system -------------------------------------------------
-  if (needs.has('rack') || needs.has('cable')) {
+  if (a.allInOne && ALL_IN_ONE[a.allInOne].every(has)) {
+    ALL_IN_ONE[a.allInOne].forEach(k => items.push(line(k)))
+  } else if (needs.has('rack') || needs.has('cable')) {
     if (needs.has('cable') && usd >= 5000 && !small && !lowCeiling) {
       items.push(line('pr5000', s.notes.pr5000Ares))
       items.push(line('ares'))
@@ -244,7 +268,7 @@ export function buildGym(a, market) {
   else items.push(line('blackwing'))
 
   // ---- Bar and plates -------------------------------------------------------
-  if (needs.has('rack') || needs.has('cable')) {
+  if (needs.has('rack') || needs.has('cable') || a.allInOne) {
     if (usd < 1500) items.push(line('delta'))
     else if (a.goal === 'strength') items.push(line('blackDiamond'))
     else items.push(line('colorado'))
@@ -327,8 +351,8 @@ export function buildGym(a, market) {
 // ---------------------------------------------------------------------------
 
 const GROUPS = {
-  rack: ['pr1100', 'pr4000', 'pr5000', 'pr4100', 'wallFixed', 'altitude', 'athenaWall'],
-  cable: ['ares', 'performancePack'],
+  rack: ['pr1100', 'pr4000', 'pr5000', 'pr4100', 'wallFixed', 'altitude', 'athenaWall', 'summitAthena'],
+  cable: ['ares', 'performancePack', 'altitudeCable'],
   bench: ['fb3000', 'fb5000', 'ab3100', 'nighthawk', 'blackwing'],
   bar: ['delta', 'blackDiamond', 'colorado'],
   plates: ['ironPlates', 'bumperPlates', 'compBumpers'],
@@ -424,4 +448,42 @@ export function editBuild(prev, answers, edit, market) {
     return { status: buildHasGroup(prev, edit.group) ? 'noChange' : 'unavailable', answers, build: prev }
   }
   return { status: 'changed', answers: updated, build: retotal(prev, [...prev.items, ...added]) }
+}
+
+// ---------------------------------------------------------------------------
+// All-in-one suggestion: when a shopper asks for a lot, offer one system that
+// covers the rack and cable work in a single footprint.
+// ---------------------------------------------------------------------------
+
+export function suggestAllInOne(build, answers, market) {
+  const must = answers.mustHaves ?? []
+  const wantsLot = (must.includes('rack') && must.includes('cable')) || (must.includes('rack') && must.length >= 3)
+  if (!wantsLot || answers.allInOne || answers.space === 'small' || answers.ceiling === 'low') return null
+
+  const prices = PRICES[market]
+  const replaced = build.items.filter(i => ['rack', 'cable'].includes(groupOf(i.key)))
+  const replacedPrice = replaced.reduce((sum, i) => sum + i.price * i.qty, 0)
+  const hasCable = replaced.some(i => groupOf(i.key) === 'cable' || i.key === 'athenaWall')
+
+  const make = (id, reason) => {
+    const keys = ALL_IN_ONE[id]
+    if (!keys.every(k => prices[k])) return null
+    if (keys.every(k => build.items.some(i => i.key === k))) return null
+    const items = keys.map(k => lineFor(k, market))
+    const price = items.reduce((sum, i) => sum + i.price, 0)
+    // Only suggest it when the swapped build still lands near the budget.
+    if (build.total - replacedPrice + price > build.budget * 1.1) return null
+    return { id, items, price, delta: price - replacedPrice, reason, later: prices.altitudeCable?.[0] }
+  }
+
+  const full = pickAllInOne(answers, market)
+  const reason = must.includes('cable') ? 'combine' : 'grow'
+  return (full && make(full, reason))
+    || (!hasCable && !replaced.some(i => i.key === 'altitude') ? make('altitudeRack', 'growLater') : null)
+}
+
+export function swapAllInOne(build, answers, suggestion) {
+  const rest = build.items.filter(i => !['rack', 'cable'].includes(groupOf(i.key)))
+  const updated = { ...answers, allInOne: suggestion.id }
+  return { answers: updated, build: retotal(build, [...suggestion.items, ...rest], { pkg: null }) }
 }

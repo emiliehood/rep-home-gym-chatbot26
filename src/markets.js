@@ -50,6 +50,8 @@ export const PRODUCT_NAMES = {
   altitude: 'Altitude™ Power Rack',
   athenaWall: 'Athena® Wall-Mounted Builder',
   ares: 'Ares™ 2.0 Builder',
+  altitudeCable: 'Altitude™ Cable Attachment',
+  summitAthena: 'Summit™ All-In-One Trainer with Athena™',
   fb3000: 'FB-3000 Flat Bench',
   fb5000: 'FB-5000 Competition Flat Bench',
   ab3100: 'AB-3100 Adjustable Bench',
@@ -83,6 +85,8 @@ export const PRICES = {
     altitude: [899.99, 'altitude-power-rack'],
     athenaWall: [2474.99, 'wall-mounted-athena'],
     ares: [2999.99, 'ares-2-0-builder'],
+    altitudeCable: [2209.99, 'altitude-rack-cable-attachment'],
+    summitAthena: [4444.88, 'summit-all-in-one-athena'],
     fb3000: [149.99, 'fb-3000-flat-bench'],
     fb5000: [244.99, 'fb-5000-competition-flat-bench'],
     ab3100: [269.99, 'ab-3100-adjustable-weight-bench'],
@@ -110,6 +114,8 @@ export const PRICES = {
     wallFixed: [454.97, 'wall-mount-fixed-rack'],
     altitude: [799.99, 'altitude-power-rack'],
     ares: [2749.99, 'ares-2-0-builder'],
+    altitudeCable: [1999.99, 'altitude-rack-cable-attachment'],
+    summitAthena: [4499.64, 'summit-all-in-one-athena'],
     fb3000: [139.99, 'fb-3000-flat-bench'],
     fb5000: [224.98, 'fb-5000-competition-flat-bench'],
     ab3100: [249.99, 'ab-3100-adjustable-weight-bench'],
@@ -134,6 +140,8 @@ export const PRICES = {
     altitude: [921.06, 'altitude-power-rack'],
     athenaWall: [2723.71, 'wall-mounted-athena'],
     ares: [3354, 'ares-2-0-builder'],
+    altitudeCable: [2404.97, 'altitude-rack-cable-attachment'],
+    summitAthena: [4907.56, 'summit-all-in-one-athena'],
     fb3000: [164.99, 'fb-3000-flat-bench'],
     fb5000: [284.98, 'fb-5000-competition-flat-bench'],
     ab3100: [299.99, 'ab-3100-adjustable-weight-bench'],
@@ -182,7 +190,7 @@ export const RACK_COLORS = {
   altitude: ['Metallic Black', 'Matte Black', 'Red', 'Blue', 'White'],
 }
 
-export const RACK_KEYS = ['pr1100', 'pr4000', 'pr5000', 'pr4100', 'wallFixed', 'altitude', 'athenaWall']
+export const RACK_KEYS = ['pr1100', 'pr4000', 'pr5000', 'pr4100', 'wallFixed', 'altitude', 'athenaWall', 'summitAthena']
 
 export const productUrl = (market, handle) => `${MARKETS[market].store}/products/${encodeURIComponent(handle)}`
 
