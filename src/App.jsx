@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import './App.css'
-import { getQuestions, parseAnswer, parseBudget, buildGym, t, parseEdit, applyEdit, buildHasGroup, groupOf, joinList } from './catalog.js'
+import { getQuestions, parseAnswer, parseBudget, buildGym, t, parseEdit, editBuild as editBuildState, buildHasGroup, groupOf, joinList } from './catalog.js'
 import { MARKETS, productUrl, formatPrice } from './markets.js'
 
 const TYPING_DELAY = 550
@@ -252,19 +252,17 @@ function App() {
       botSay([msg('bot', s.edit.notPresent(label))])
       return
     }
-    const updated = applyEdit(answers, edit)
-    const build = buildGym(updated, market)
-    const sameItems = build.items.map(i => i.key).join() === lastBuild.items.map(i => i.key).join()
-    if (sameItems) {
-      const missing = edit.action === 'add' && !buildHasGroup(build, edit.group)
-      botSay([msg('bot', missing ? s.edit.unavailable(label) : s.edit.noChange)])
+    const { status, answers: updated, build } = editBuildState(lastBuild, answers, edit, market)
+    if (status !== 'changed') {
+      botSay([msg('bot', status === 'unavailable' ? s.edit.unavailable(label) : s.edit.noChange)])
       return
     }
+    const note = edit.action === 'remove' && edit.group === 'plates' ? ' ' + s.edit.platesNote : ''
     setAnswers(updated)
     setLastBuild(build)
     setResumeStep(null)
     setStep(questions.length)
-    botSay([msg('bot', edit.action === 'remove' ? s.edit.removed(label) : s.edit.added(label)), msg('bot', '', { build })])
+    botSay([msg('bot', (edit.action === 'remove' ? s.edit.removed(label) : s.edit.added(label)) + note), msg('bot', '', { build })])
   }
 
   const removeItem = (item) => {

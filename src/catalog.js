@@ -397,3 +397,31 @@ export function applyEdit(answers, { action, group }) {
 
   return { ...answers, mustHaves: [...mustHaves], removed: [...removed] }
 }
+
+const retotal = (build, items, extra = {}) => {
+  const total = itemsTotal(items)
+  return { ...build, ...extra, items, total, remaining: build.budget - total, hasPlates: items.some(i => i.perPair) }
+}
+
+// Applies an edit to the build the shopper is looking at. Removing only takes
+// items out, so the total always drops by what was removed; adding only puts
+// new items in. Re-running the whole build instead would let freed-up budget
+// silently pull back items that were trimmed earlier.
+export function editBuild(prev, answers, edit, market) {
+  const updated = applyEdit(answers, edit)
+
+  if (edit.action === 'remove') {
+    const drop = edit.group === 'rack' ? ['rack', 'cable', 'bar', 'plates'] : [edit.group]
+    const items = prev.items.filter(i => !drop.includes(groupOf(i.key)))
+    const keepPkg = !['rack', 'cable', 'dumbbells'].includes(edit.group)
+    return { status: 'changed', answers: updated, build: retotal(prev, items, { pkg: keepPkg ? prev.pkg : null }) }
+  }
+
+  const full = buildGym(updated, market)
+  const have = new Set(prev.items.map(i => groupOf(i.key)))
+  const added = full.items.filter(i => !have.has(groupOf(i.key)))
+  if (!added.length) {
+    return { status: buildHasGroup(prev, edit.group) ? 'noChange' : 'unavailable', answers, build: prev }
+  }
+  return { status: 'changed', answers: updated, build: retotal(prev, [...prev.items, ...added]) }
+}
