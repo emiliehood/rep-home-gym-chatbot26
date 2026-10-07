@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import './App.css'
-import { getQuestions, parseAnswer, parseBudget, buildGym, t, parseEdit, editBuild as editBuildState, buildHasGroup, groupOf, joinList, suggestAllInOne, swapAllInOne } from './catalog.js'
-import { MARKETS, productUrl, formatPrice } from './markets.js'
+import { getQuestions, parseAnswer, parseBudget, buildGym, t, parseEdit, editBuild as editBuildState, buildHasGroup, groupOf, joinList, suggestAllInOne, swapAllInOne, parseSupport } from './catalog.js'
+import { MARKETS, SUPPORT, productUrl, formatPrice } from './markets.js'
 
 const TYPING_DELAY = 550
 const RESTART_WORDS = /^(restart|start over|reset|neustart|neu starten|von vorn)$/i
@@ -31,6 +31,46 @@ function RichLine({ text }) {
           : <span key={i}>{part}</span>
       )}
     </p>
+  )
+}
+
+// Hands a customer-service question off to the right REP support channel.
+function SupportCard({ intent, market }) {
+  const s = t(market).support
+  const c = SUPPORT[market]
+  const lines = s.body[market][intent]
+  const mail = `mailto:${c.email}?subject=${encodeURIComponent(s.subjects[intent])}`
+
+  const actions = [
+    intent === 'returns' && c.returns && { label: s.actions.returns, href: c.returns },
+    intent === 'warranty' && c.warranty && { label: s.actions.warranty, href: c.warranty },
+    { label: s.actions.contact, href: c.contact, primary: true },
+    { label: s.actions.email, detail: c.email, href: mail },
+    c.phone && { label: s.actions.call, detail: c.phone, href: `tel:${c.phone}` },
+    { label: s.actions.knowledgeBase, href: c.knowledgeBase },
+  ].filter(Boolean)
+
+  return (
+    <div className="support-card">
+      <span className="eyebrow">{s.eyebrow}</span>
+      <h2>{s.titles[intent]}</h2>
+      {lines.map(l => <p key={l}>{l}</p>)}
+      {c.hours && <p className="support-card__hours">{s.hours(c.hours)}</p>}
+      <div className="support-card__actions">
+        {actions.map(a => (
+          <a
+            key={a.label}
+            className={`btn ${a.primary ? 'btn--primary' : 'btn--secondary'}`}
+            href={a.href}
+            target={a.href.startsWith('http') ? '_blank' : undefined}
+            rel="noreferrer"
+          >
+            {a.label}
+            {a.detail && <span className="support-card__detail">{a.detail}</span>}
+          </a>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -315,6 +355,17 @@ function App() {
       return
     }
 
+    // Order, return and support questions get handed off, from anywhere in the flow.
+    const intent = parseSupport(text)
+    if (intent) {
+      echo(text)
+      const followUp = done
+        ? s.support.resumeDone
+        : pendingWarn ? s.support.resumeDone.split('?')[0] + '?' : s.support.resume(question.prompt)
+      botSay([msg('bot', s.support.intro), msg('bot', '', { support: intent }), msg('bot', followUp, { hint: done || pendingWarn ? null : question.hint })])
+      return
+    }
+
     if (lastBuild && /all.?in.?one|altitude|summit|swap|austausch/i.test(text)) {
       swapSystem(text)
       return
@@ -408,8 +459,10 @@ function App() {
 
       <main className="messages">
         {messages.map(m => (
-          <div key={m.id} className={`message message--${m.sender} ${m.build ? 'message--wide' : ''}`}>
-            {m.build ? (
+          <div key={m.id} className={`message message--${m.sender} ${m.build || m.support ? 'message--wide' : ''}`}>
+            {m.support ? (
+              <SupportCard intent={m.support} market={market} />
+            ) : m.build ? (
               <BuildCard build={m.build} market={market} onRestart={() => reset()} onEditBudget={editBudget} onRemove={m.id === latestBuildId && !typing ? removeItem : null} suggestion={m.id === latestBuildId ? currentSuggestion : null} onSwap={!typing ? () => swapSystem(s.card.allInOne.swap) : null} />
             ) : (
               <div className="bubble">

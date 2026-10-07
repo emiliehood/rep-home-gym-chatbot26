@@ -523,3 +523,59 @@
 @media (max-width: 520px) {
   .build-allinone { margin-inline: 16px; }
 }
+
+/* ---------- Support hand-off ---------- */
+.support-card {
+  width: 100%;
+  background: var(--rep-white);
+  border: 1px solid var(--rep-border);
+  border-left: 4px solid var(--rep-navy);
+  border-radius: 6px;
+  padding: 18px 20px;
+  font-size: 15px;
+  animation: rise 0.3s ease-out;
+}
+
+.support-card h2 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--rep-navy);
+  margin: 2px 0 8px;
+}
+
+.support-card p + p { margin-top: 6px; }
+
+.support-card__hours {
+  font-size: 13px;
+  color: var(--rep-text-muted);
+}
+
+.support-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.support-card__actions .btn {
+  text-decoration: none;
+  font-size: 12px;
+  padding: 10px 14px;
+  text-align: center;
+}
+
+@media (max-width: 520px) {
+  .support-card { padding: 16px; }
+  .support-card__actions .btn { flex: 1 1 100%; }
+}
+
+.support-card__detail {
+  display: block;
+  margin-top: 2px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}

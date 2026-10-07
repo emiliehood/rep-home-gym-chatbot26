@@ -5,7 +5,7 @@
 const en = {
   bar: 'Home Gym Builder · Prototype for interview',
   title: 'Build your home gym',
-  intro: "Hey, I'm the **REP Home Gym Builder**. Answer a few quick questions about your space, budget and goals, and I'll put together a build from REP's lineup.",
+  intro: "Hey, I'm the **REP Home Gym Builder**. Answer a few quick questions about your space, budget and goals, and I'll put together a build from REP's lineup.\n\nQuestion about an existing order? Just type it and I'll point you to the right team.",
   placeholder: 'Type your answer...',
   placeholderDone: "Type 'restart' to start over",
   send: 'Send',
@@ -166,6 +166,35 @@ const en = {
   },
   lowerPicks: true,
 
+  support: {
+    eyebrow: 'Customer support',
+    intro: "I'm the gym builder, so I can't look up or change orders, but REP's support team can. Here's the fastest way to reach them.",
+    titles: { returns: 'Returns', refund: 'Refunds', cancel: 'Cancel or change an order', orderStatus: 'Order status and tracking', warranty: 'Damaged, broken or missing parts', human: 'Talk to customer support' },
+    body: {
+      us: {
+        returns: ['Returns can be started within 30 days of delivery or pickup.', 'Use the form on the Contact Us page, or email the team with your order number.'],
+        refund: ['Returns take 5–7 business days to process. After that, funds take 24–48 hours to reach your account.', "If you got a refund confirmation more than 48 hours ago and don't see it, check with your bank."],
+        cancel: ['Email the team right away with CANCEL in the subject line.', "Orders ship fast, so a cancellation isn't guaranteed once it's in the shipping process."],
+        orderStatus: ['Open the link in your order confirmation email to see status and tracking.', 'In-stock items usually ship within 48 hours, excluding weekends. Big orders can arrive in several packages.'],
+        warranty: ['If something arrived damaged or stopped working, REP wants the chance to make it right.', 'Check the warranty for your product, then contact the team with your order number and a photo.'],
+        human: ['Call or text the Colorado-based team, or email and they will reply within 24 business hours.'],
+      },
+      uk: {
+        returns: ['Returns can be made within 30 days of delivery.', "Email the UK team with your order number and reason for returning, and they'll send you a return delivery label."],
+        refund: ['Items returned complete, unused and in their original packaging get a full refund once inspected.', 'For an update on a refund, email the UK team with your order number.'],
+        cancel: ['Email the UK team as soon as possible with your order number and what you need changed.'],
+        orderStatus: ["Your shipping confirmation email has your tracking. For large freight orders, the carrier will contact you to book a 2-hour delivery window."],
+        warranty: ['If something arrived damaged or stopped working, REP wants the chance to make it right.', 'Check the UK warranty for your product, then email the team with your order number and a photo.'],
+        human: ['Use the Contact Us form or email the UK team, and they will get back to you as soon as possible.'],
+      },
+    },
+    hours: (h) => `Phone and text hours: ${h}.`,
+    actions: { contact: 'Contact support', email: 'Email support', call: 'Call or text', returns: 'Return policy', warranty: 'Warranty info', knowledgeBase: '24/7 help center' },
+    subjects: { returns: 'Return request', refund: 'Refund question', cancel: 'CANCEL', orderStatus: 'Order status', warranty: 'Warranty claim', human: 'Customer support' },
+    resume: (prompt) => `Anything else? If you're also planning a home gym, let's keep going.\n\n${prompt}`,
+    resumeDone: 'Anything else? Your build is still here above, and you can keep editing it.',
+  },
+
   packages: {
     trailhead: 'PR-1100 rack, bench, Delta bar and your choice of plates',
     essentials: 'PR-5000 rack, adjustable bench, adjustable dumbbells, bar, plates and accessories',
@@ -190,7 +219,7 @@ const enGB = {
 const de = {
   bar: 'Home-Gym-Konfigurator · Prototyp fürs Vorstellungsgespräch',
   title: 'Stell dein Home Gym zusammen',
-  intro: 'Hi, ich bin der **REP Home-Gym-Konfigurator**. Beantworte ein paar kurze Fragen zu Platz, Budget und Zielen, und ich stelle dir ein Setup aus dem REP-Sortiment zusammen.',
+  intro: 'Hi, ich bin der **REP Home-Gym-Konfigurator**. Beantworte ein paar kurze Fragen zu Platz, Budget und Zielen, und ich stelle dir ein Setup aus dem REP-Sortiment zusammen.\n\nFrage zu einer bestehenden Bestellung? Schreib sie einfach hier rein und ich zeige dir, wer dir weiterhilft.',
   placeholder: 'Deine Antwort...',
   placeholderDone: "Tippe 'neustart', um von vorn zu beginnen",
   send: 'Senden',
@@ -350,6 +379,27 @@ const de = {
     which: (x) => `Soll ich ${x} entfernen oder hinzufügen? Schreib z. B. **${x} entfernen** oder **${x} hinzufügen**.`,
   },
   lowerPicks: false,
+
+  support: {
+    eyebrow: 'Kundenservice',
+    intro: 'Ich bin der Gym-Konfigurator und kann keine Bestellungen einsehen oder ändern. Das REP-Supportteam hilft dir aber gern. So erreichst du es am schnellsten.',
+    titles: { returns: 'Rückgabe', refund: 'Rückerstattung', cancel: 'Bestellung stornieren oder ändern', orderStatus: 'Bestellstatus und Sendungsverfolgung', warranty: 'Beschädigt, defekt oder Teile fehlen', human: 'Kundenservice kontaktieren' },
+    body: {
+      de: {
+        returns: ['Du kannst Produkte innerhalb von 30 Tagen zurückgeben.', 'Stelle deine Rückgabeanfrage über das Formular auf der Kontaktseite oder schreib dem Team eine E-Mail mit deiner Bestellnummer.'],
+        refund: ['Für den Stand deiner Rückerstattung schreib dem Team eine E-Mail mit deiner Bestellnummer.'],
+        cancel: ['Nutze das Stornierungsformular auf der Kontaktseite oder schreib dem Team sofort eine E-Mail mit deiner Bestellnummer.'],
+        orderStatus: ['Die Sendungsverfolgung findest du in deiner Versandbestätigung per E-Mail. Bei Fragen hilft dir das Team per E-Mail weiter.'],
+        warranty: ['Wenn etwas beschädigt ankommt oder nicht funktioniert, möchte REP das in Ordnung bringen.', 'Am schnellsten geht es mit einem kurzen Video oder einer Sprachnachricht vom Handy, die das Problem zeigt. Starte über die Kontaktseite.'],
+        human: ['Schreib dem Team über die Kontaktseite oder per E-Mail. Du bekommst innerhalb von 24 Werktagsstunden eine Antwort. Telefonsupport folgt bald.'],
+      },
+    },
+    hours: (h) => `Erreichbarkeit: ${h}.`,
+    actions: { contact: 'Kontaktseite', email: 'E-Mail an den Support', call: 'Anrufen', returns: 'Rückgabe und Garantie', warranty: 'Garantie-Infos', knowledgeBase: 'Hilfe-Center (24/7)' },
+    subjects: { returns: 'Rückgabe', refund: 'Rückerstattung', cancel: 'STORNIERUNG', orderStatus: 'Bestellstatus', warranty: 'Garantiefall', human: 'Kundenservice' },
+    resume: (prompt) => `Kann ich sonst noch helfen? Falls du auch ein Home Gym planst, machen wir einfach weiter.\n\n${prompt}`,
+    resumeDone: 'Kann ich sonst noch helfen? Dein Setup steht weiter oben und du kannst es jederzeit anpassen.',
+  },
 
   packages: {
     trailhead: 'PR-1100 Rack, Bank, Delta-Langhantel und Scheiben nach Wahl',

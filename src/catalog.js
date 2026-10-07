@@ -487,3 +487,23 @@ export function swapAllInOne(build, answers, suggestion) {
   const updated = { ...answers, allInOne: suggestion.id }
   return { answers: updated, build: retotal(build, [...suggestion.items, ...rest], { pkg: null }) }
 }
+
+// ---------------------------------------------------------------------------
+// Customer service intents: someone mistakes the builder for support chat.
+// Checked in order, so "where is my refund" is a refund question and
+// "cancel my order" isn't an order-status question.
+// ---------------------------------------------------------------------------
+
+const SUPPORT_INTENTS = [
+  ['cancel', ['cancel', 'storn', 'widerruf']],
+  ['refund', ['refund', 'money back', 'my money', 'rückerstatt', 'erstattung', 'geld zurück']],
+  ['warranty', ['warranty', 'broken', 'damaged', 'defect', 'missing part', 'missing piece', 'doesn\'t work', 'does not work', 'not working', 'garantie', 'gewährleistung', 'kaputt', 'beschädigt', 'defekt', 'fehlt']],
+  ['returns', ['return', 'send it back', 'send back', 'exchange', 'rückgabe', 'zurückgeben', 'zurücksenden', 'zurückschicken', 'retoure', 'umtausch']],
+  ['orderStatus', ['order status', 'my order', 'track', 'where is', "where's", 'shipping', 'shipped', 'delivery', 'deliver', 'arrive', 'package', 'bestellung', 'sendung', 'lieferung', 'versand', 'paket', 'wo ist']],
+  ['human', ['customer service', 'customer support', 'support', 'human', 'agent', 'representative', 'real person', 'speak to', 'talk to', 'contact', 'phone', 'call', 'complaint', 'kundenservice', 'kundendienst', 'mitarbeiter', 'kontakt', 'anrufen', 'beschwerde', 'mensch']],
+]
+
+export function parseSupport(text) {
+  const lower = ` ${text.toLowerCase().trim()} `
+  return SUPPORT_INTENTS.find(([, words]) => words.some(w => lower.includes(w)))?.[0] ?? null
+}

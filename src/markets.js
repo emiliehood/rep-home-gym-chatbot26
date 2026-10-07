@@ -204,3 +204,37 @@ export function formatPrice(n, market) {
     maximumFractionDigits: 2,
   }).format(n)
 }
+
+// Customer support channels per store, from each store's Contact Us page
+// (October 2026). The chatbot hands off to these instead of trying to handle
+// orders itself.
+export const SUPPORT = {
+  us: {
+    contact: 'https://repfitness.com/pages/contact-us',
+    email: 'info@repfitness.com',
+    phone: '720-420-1731',
+    hours: 'Mon–Fri 9am–5pm MST, Sat 9am–3pm MST',
+    knowledgeBase: 'https://repfitness.kustomer.help/',
+    returns: 'https://repfitness.com/pages/us-returns-and-cancellations',
+    warranty: 'https://repfitness.com/pages/warranty-information',
+    showroom: 'https://repfitness.com/pages/virtual-showroom-rep-fitness',
+  },
+  uk: {
+    contact: 'https://uk.repfitness.com/pages/contact-us-page-uk',
+    email: 'support.uk@repfitness.com',
+    phone: null,
+    knowledgeBase: 'https://repfitness-uk.kustomer.help/',
+    returns: 'https://uk.repfitness.com/pages/returns-and-refunds',
+    warranty: 'https://uk.repfitness.com/pages/product-warranty',
+    showroom: 'https://uk.repfitness.com/pages/uk-showroom',
+  },
+  de: {
+    contact: 'https://de.repfitness.com/pages/contact-us',
+    email: 'europe@repfitness.com',
+    phone: null,
+    knowledgeBase: 'https://repfitness-europe.kustomer.help/',
+    returns: 'https://de.repfitness.com/pages/warranty-and-returns',
+    warranty: 'https://de.repfitness.com/pages/warranty-and-returns',
+    showroom: null,
+  },
+}
